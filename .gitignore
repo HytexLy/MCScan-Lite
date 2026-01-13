@@ -1,0 +1,14 @@
+*.exe
+*.obj
+*.o
+*.a
+*.lib
+*.pdb
+*.ilk
+*.exp
+*.log
+*.tmp
+
+build/
+dist/
+.vs/
