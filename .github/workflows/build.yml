@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -15,3 +19,127 @@ jobs:
       - name: Build scanner
         shell: cmd
         run: compile_scanner.bat
+
+  release:
+    needs: build-windows
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve previous Release-full tag
+        id: prev_tag
+        run: |
+          if git rev-parse --verify refs/tags/Release-full >/dev/null 2>&1; then
+            echo "sha=$(git rev-parse refs/tags/Release-full)" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build release notes
+        id: notes
+        uses: actions/github-script@v7
+        env:
+          PREV_SHA: ${{ steps.prev_tag.outputs.sha }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prevSha = process.env.PREV_SHA;
+            const headSha = context.sha;
+
+            let commits = [];
+            let compareUrl = "";
+
+            if (prevSha) {
+              const compare = await github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base: prevSha,
+                head: headSha
+              });
+              commits = compare.data.commits || [];
+              compareUrl = compare.data.html_url || "";
+            } else {
+              const list = await github.rest.repos.listCommits({
+                owner,
+                repo,
+                sha: headSha,
+                per_page: 20
+              });
+              commits = list.data || [];
+            }
+
+            const changeLines = [];
+            const contributors = new Set();
+            for (const c of commits) {
+              const summary = (c.commit && c.commit.message ? c.commit.message.split("\n")[0] : "Update").trim();
+              const login = c.author && c.author.login ? `@${c.author.login}` : (c.commit && c.commit.author ? c.commit.author.name : "unknown");
+              if (login.startsWith("@")) {
+                contributors.add(login);
+              }
+              changeLines.push(`- ${summary} (${login})`);
+            }
+
+            if (changeLines.length === 0) {
+              changeLines.push("- No changes detected.");
+            }
+
+            const thanks = contributors.size ? Array.from(contributors).join(", ") : "Contributors not detected.";
+            const lines = [];
+            lines.push("## What's Changed");
+            lines.push(...changeLines);
+            lines.push("");
+            lines.push("## Thanks");
+            lines.push(thanks);
+            if (compareUrl) {
+              lines.push("");
+              lines.push(`Full Changelog: ${compareUrl}`);
+            }
+            const body = lines.join("\n").trim();
+
+            core.setOutput("name", "Release-full");
+            core.setOutput("body", body);
+      - name: Update Release-full tag
+        run: |
+          git tag -f Release-full "${{ github.sha }}"
+          git push --force origin Release-full
+      - name: Create or update release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_NAME: ${{ steps.notes.outputs.name }}
+          RELEASE_BODY: ${{ steps.notes.outputs.body }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = "Release-full";
+            const name = process.env.RELEASE_NAME || tag;
+            const body = process.env.RELEASE_BODY || "";
+
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              await github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: data.id,
+                tag_name: tag,
+                name,
+                body,
+                draft: false,
+                prerelease: false
+              });
+            } catch (err) {
+              if (err.status !== 404) throw err;
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                target_commitish: context.sha,
+                name,
+                body,
+                draft: false,
+                prerelease: false
+              });
+            }
