@@ -1,0 +1,2 @@
+47.141.100.123:25565 | players 2/10 | latency 492.0 ms | motd "Cobblemon Johto 1.3"
+66.248.194.9:25565 | players 0/20 | latency 744.1 ms | motd "Better MC [FORGE] 1.20.1§r"

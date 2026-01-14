@@ -8,7 +8,9 @@ exits 0. On failure, prints an error to stderr and exits non-zero.
 """
 
 import argparse
+import socket
 import sys
+import time
 from typing import Any
 
 from mcstatus import JavaServer
@@ -38,10 +40,40 @@ def main() -> int:
     parser.add_argument("--ip", required=True, help="Target IP/hostname")
     parser.add_argument("--port", type=int, default=25565, help="Target port (default: 25565)")
     parser.add_argument("--timeout", type=float, default=3.0, help="Status timeout in seconds")
+    parser.add_argument("--retries", type=int, default=3, help="Retry count for transient errors")
+    parser.add_argument("--retry-delay", type=float, default=0.75, help="Delay between retries (seconds)")
     args = parser.parse_args()
 
     server = JavaServer.lookup(f"{args.ip}:{args.port}")
-    status = server.status(timeout=args.timeout)
+    transient_errors = (socket.timeout, TimeoutError, ConnectionResetError, ConnectionRefusedError, OSError)
+    last_exc: Exception | None = None
+
+    def log(msg: str) -> None:
+        print(f"LOG: {msg}", flush=True)
+
+    for attempt in range(max(1, args.retries)):
+        log(f"Attempt {attempt + 1}/{max(1, args.retries)} for {args.ip}:{args.port}")
+        try:
+            try:
+                status = server.status(timeout=args.timeout)
+            except TypeError:
+                status = server.status()
+            log("Status received")
+            break
+        except transient_errors as exc:
+            last_exc = exc
+            log(f"Transient failure: {exc}")
+            if attempt + 1 < args.retries:
+                time.sleep(max(0.0, args.retry_delay))
+                continue
+            print(f"MC-TIMEOUT: {exc}")
+            return 3
+        except Exception as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print(f"MC-TIMEOUT: {last_exc}")
+        return 3
 
     motd = _flatten_description(status.description)
     latency_ms = getattr(status, "latency", None)
