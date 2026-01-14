@@ -1,8 +1,7 @@
 # MCScan-Lite
 
-Lightweight proxy-backed scanner for Minecraft server discovery (default port 25565).
-It pings targets, checks reachability through per-worker proxies, and can verify
-Java Edition servers via the bundled Python mcstatus helper.
+Lightweight proxy-backed scanner for Minecraft server discovery (default port 25565). 
+It pings targets, checks reachability through per-worker proxies, and can verify Java Edition servers via the bundled Python mcstatus helper.
 
 ## Features
 - SOCKS5 or HTTP CONNECT proxy per worker
