@@ -79,12 +79,15 @@ def main() -> int:
     latency_ms = getattr(status, "latency", None)
     players_online = getattr(status.players, "online", None)
     players_max = getattr(status.players, "max", None)
+    version = getattr(getattr(status, "version", None), "name", None)
 
     parts = [f"{args.ip}:{args.port}"]
     if players_online is not None and players_max is not None:
         parts.append(f"players {players_online}/{players_max}")
     if latency_ms is not None:
         parts.append(f"latency {latency_ms:.1f} ms")
+    if version:
+        parts.append(f"version {version}")
     if motd:
         parts.append(f"motd \"{motd}\"")
 

@@ -51,17 +51,12 @@ using socket_t = int;
 
 namespace {
 
-constexpr const char* kDefaultStartIp = "40.0.0.0";
-constexpr const char* kDefaultEndIp = "255.255.255.255";
-constexpr int kDefaultPort = 25565;
-constexpr const char* kResultsFile = "minecraft_servers.txt";
-
 struct Options {
     std::string start_ip;
     std::string end_ip;
     std::vector<std::string> targets;
     std::string target_file;
-    int port = kDefaultPort;
+    int port = 25565;
     int workers = 32;
     double timeout_sec = 3.0;
     double duration_sec = -1.0;  // negative = unlimited
@@ -136,11 +131,11 @@ struct TargetSet {
 std::string usage() {
     std::ostringstream out;
     out << "Usage: scanner [options]\n"
-        << "  --start-ip IP          Starting IPv4 address (default: " << kDefaultStartIp << ")\n"
-        << "  --end-ip IP            Ending IPv4 address (default: " << kDefaultEndIp << ")\n"
+        << "  --start-ip IP          Starting IPv4 address (inclusive)\n"
+        << "  --end-ip IP            Ending IPv4 address (inclusive)\n"
         << "  --targets IP ...       Explicit target IPs\n"
         << "  --target-file PATH     File with one IP per line\n"
-        << "  --port N               Target TCP port (default: " << kDefaultPort << ")\n"
+        << "  --port N               Target TCP port (default: 25565)\n"
         << "  --workers N            Worker threads (default: 32)\n"
         << "  --ping-timeout SEC     Ping timeout seconds (default: 1.0)\n"
         << "  --timeout SEC          Socket timeout seconds (default: 3.0)\n"
@@ -160,67 +155,81 @@ bool starts_with_dash(const std::string& s) {
 
 std::optional<Options> parse_args(int argc, char** argv) {
     Options opts;
-    int i = 1;
-    auto need_val = [&](const char* flag) -> std::optional<std::string> {
-        if (i + 1 >= argc) {
-            std::cerr << "Missing value for " << flag << "\n";
-            return std::nullopt;
-        }
-        return argv[++i];
-    };
-    for (; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
             std::cout << usage();
             return std::nullopt;
         } else if (arg == "--start-ip") {
-            auto v = need_val("--start-ip");
-            if (!v) return std::nullopt;
-            opts.start_ip = *v;
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --start-ip\n";
+                return std::nullopt;
+            }
+            opts.start_ip = argv[++i];
         } else if (arg == "--end-ip") {
-            auto v = need_val("--end-ip");
-            if (!v) return std::nullopt;
-            opts.end_ip = *v;
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --end-ip\n";
+                return std::nullopt;
+            }
+            opts.end_ip = argv[++i];
         } else if (arg == "--targets") {
             while (i + 1 < argc && !starts_with_dash(argv[i + 1])) {
                 opts.targets.emplace_back(argv[++i]);
             }
         } else if (arg == "--target-file") {
-            auto v = need_val("--target-file");
-            if (!v) return std::nullopt;
-            opts.target_file = *v;
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --target-file\n";
+                return std::nullopt;
+            }
+            opts.target_file = argv[++i];
         } else if (arg == "--port") {
-            auto v = need_val("--port");
-            if (!v) return std::nullopt;
-            opts.port = std::stoi(*v);
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --port\n";
+                return std::nullopt;
+            }
+            opts.port = std::stoi(argv[++i]);
         } else if (arg == "--workers") {
-            auto v = need_val("--workers");
-            if (!v) return std::nullopt;
-            opts.workers = std::stoi(*v);
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --workers\n";
+                return std::nullopt;
+            }
+            opts.workers = std::stoi(argv[++i]);
         } else if (arg == "--timeout") {
-            auto v = need_val("--timeout");
-            if (!v) return std::nullopt;
-            opts.timeout_sec = std::stod(*v);
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --timeout\n";
+                return std::nullopt;
+            }
+            opts.timeout_sec = std::stod(argv[++i]);
         } else if (arg == "--ping-timeout") {
-            auto v = need_val("--ping-timeout");
-            if (!v) return std::nullopt;
-            opts.ping_timeout_sec = std::stod(*v);
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --ping-timeout\n";
+                return std::nullopt;
+            }
+            opts.ping_timeout_sec = std::stod(argv[++i]);
         } else if (arg == "--duration") {
-            auto v = need_val("--duration");
-            if (!v) return std::nullopt;
-            opts.duration_sec = std::stod(*v);
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --duration\n";
+                return std::nullopt;
+            }
+            opts.duration_sec = std::stod(argv[++i]);
         } else if (arg == "--proxies-file") {
-            auto v = need_val("--proxies-file");
-            if (!v) return std::nullopt;
-            opts.proxies_file = *v;
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --proxies-file\n";
+                return std::nullopt;
+            }
+            opts.proxies_file = argv[++i];
         } else if (arg == "--proxy-port") {
-            auto v = need_val("--proxy-port");
-            if (!v) return std::nullopt;
-            opts.proxy_port = std::stoi(*v);
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --proxy-port\n";
+                return std::nullopt;
+            }
+            opts.proxy_port = std::stoi(argv[++i]);
         } else if (arg == "--proxy-type") {
-            auto v = need_val("--proxy-type");
-            if (!v) return std::nullopt;
-            opts.proxy_type = *v;
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for --proxy-type\n";
+                return std::nullopt;
+            }
+            opts.proxy_type = argv[++i];
             if (opts.proxy_type != "socks5" && opts.proxy_type != "http") {
                 std::cerr << "proxy-type must be socks5 or http\n";
                 return std::nullopt;
@@ -245,8 +254,19 @@ std::vector<std::string> load_lines(const std::string& path) {
     }
     std::string line;
     while (std::getline(file, line)) {
-        line = trim_copy(line);
-        if (!line.empty() && line[0] != '#') lines.push_back(line);
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        // trim whitespace
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ' || line.back() == '\t')) {
+            line.pop_back();
+        }
+        while (!line.empty() && (line.front() == ' ' || line.front() == '\t')) {
+            line.erase(line.begin());
+        }
+        if (!line.empty()) {
+            lines.push_back(line);
+        }
     }
     return lines;
 }
@@ -292,24 +312,18 @@ bool expand_range(const std::string& start_ip, const std::string& end_ip, std::v
 
 TargetSet collect_targets(const Options& opts, std::string& err) {
     TargetSet tset;
-    bool has_list_targets = !opts.targets.empty() || !opts.target_file.empty();
-    std::string start_ip = opts.start_ip;
-    std::string end_ip = opts.end_ip;
-    if (start_ip.empty() && end_ip.empty() && !has_list_targets) {
-        start_ip = kDefaultStartIp;
-        end_ip = kDefaultEndIp;
-    }
-    if (!start_ip.empty() || !end_ip.empty()) {
-        if (start_ip.empty() || end_ip.empty()) {
+    if (!opts.start_ip.empty() || !opts.end_ip.empty()) {
+        if (opts.start_ip.empty() || opts.end_ip.empty()) {
             err = "Both --start-ip and --end-ip are required together";
             return {};
         }
+        std::vector<std::string> tmp;  // unused, only for validation
         uint32_t start, end;
-        if (!parse_ipv4(start_ip, start)) {
+        if (!parse_ipv4(opts.start_ip, start)) {
             err = "Invalid start IP";
             return {};
         }
-        if (!parse_ipv4(end_ip, end)) {
+        if (!parse_ipv4(opts.end_ip, end)) {
             err = "Invalid end IP";
             return {};
         }
@@ -577,28 +591,13 @@ bool ping_host(const std::string& ip, int timeout_ms) {
     return rc == 0;
 }
 
-bool command_available(const std::string& cmd) {
-#ifdef _WIN32
-    std::string test = "cmd /c " + cmd + " --version >nul 2>&1";
-#else
-    std::string test = cmd + " --version >/dev/null 2>&1";
-#endif
-    return std::system(test.c_str()) == 0;
-}
-
 std::string python_command() {
     if (const char* env = std::getenv("PYTHON_CMD")) {
         return env;
     }
 #ifdef _WIN32
-    for (const char* cand : {"python", "python3", "py -3", "py"}) {
-        if (command_available(cand)) return cand;
-    }
     return "python";
 #else
-    for (const char* cand : {"python3", "python"}) {
-        if (command_available(cand)) return cand;
-    }
     return "python3";
 #endif
 }
@@ -610,24 +609,11 @@ std::string mcstatus_script_path() {
     return "mcstatus_probe.py";
 }
 
-bool check_minecraft_server_via_python(
-    const std::string& ip,
-    int port,
-    std::string& message_out,
-    std::string& error_out,
-    std::vector<std::string>* logs_out = nullptr) {
+bool check_minecraft_server_via_python(const std::string& ip, int port, std::string& message_out, std::string& error_out) {
     const double timeout_sec = 3.0;
-    auto quote_if_path = [](std::string v) {
-        bool has_space = v.find_first_of(" \t") != std::string::npos;
-        bool has_sep = v.find('\\') != std::string::npos || v.find('/') != std::string::npos;
-        bool quoted = v.find('"') != std::string::npos;
-        if (has_sep && has_space && !quoted) v = "\"" + v + "\"";
-        return v;
-    };
-    std::string py_cmd = quote_if_path(python_command());
-    std::string script = quote_if_path(mcstatus_script_path());
     std::ostringstream cmd;
-    cmd << py_cmd << " " << script
+    cmd << "\"" << python_command() << "\" "
+        << "\"" << mcstatus_script_path() << "\""
         << " --ip \"" << ip << "\" --port " << port
         << " --timeout " << timeout_sec
         << " 2>&1";
@@ -650,52 +636,13 @@ bool check_minecraft_server_via_python(
 #else
     int rc = pclose(pipe);
 #endif
-    std::string main_line;
-    {
-        std::istringstream iss(output);
-        std::string line;
-        while (std::getline(iss, line)) {
-            line = trim_copy(line);
-            if (line.empty()) continue;
-            if (line.rfind("LOG:", 0) == 0) {
-                if (logs_out) logs_out->push_back(trim_copy(line.substr(4)));
-                continue;
-            }
-            main_line = line;
-        }
-    }
-    output = trim_copy(main_line);
-    if (rc == 0 && !output.empty()) {
-        message_out = output;
-        return true;
-    }
-    if (rc == 2 || output.rfind("NONMC:", 0) == 0) {
-        error_out = "NONMC";
-        return false;
-    }
-    if (rc == 3 || output.rfind("MC-TIMEOUT", 0) == 0) {
-        error_out = output.empty() ? "MC-TIMEOUT" : output;
-        return false;
-    }
+    output = trim_copy(output);
     if (rc != 0 || output.empty()) {
         error_out = output.empty() ? "mcstatus helper returned no output" : output;
-#ifdef _WIN32
-        if (error_out.find("not recognized") != std::string::npos) {
-            error_out += " (install Python or set PYTHON_CMD)";
-        }
-#endif
         return false;
     }
     message_out = output;
     return true;
-}
-
-void write_results_to_file(const std::vector<Result>& results, const Options& opts, const std::string& path = kResultsFile) {
-    std::ofstream out(path, std::ios::trunc);
-    if (!out.is_open()) return;
-    for (const auto& r : results) {
-        out << (r.mc_status.empty() ? (r.target_ip + ":" + std::to_string(opts.port)) : r.mc_status) << "\n";
-    }
 }
 
 class StatTracker {
@@ -835,15 +782,12 @@ void worker_loop(
         if (ok) {
             std::string mc_message;
             std::string mc_error;
-            std::vector<std::string> py_logs;
-            bool mc_ok = check_minecraft_server_via_python(target, opts.port, mc_message, mc_error, &py_logs);
-            for (const auto& log_line : py_logs) {
-                emit_log(callbacks.on_open, "LOG: " + log_line);
-            }
+            bool mc_ok = check_minecraft_server_via_python(target, opts.port, mc_message, mc_error);
             if (mc_ok) {
                 std::ostringstream mc_log;
                 mc_log << "[MC] " << mc_message << " via " << proxy_ip << ":" << opts.proxy_port
                        << " (" << opts.proxy_type << ", port check " << std::fixed << std::setprecision(2) << elapsed << "s)";
+                emit_log(callbacks.on_open, mc_log.str());
                 stats.record_open();
                 Result r{target, proxy_ip, elapsed, mc_message};
                 {
@@ -851,18 +795,11 @@ void worker_loop(
                     results.push_back(r);
                 }
                 emit_result(callbacks.on_result, r);
-            } else {
-                std::ostringstream msg;
-                bool non_mc = mc_error.empty() || mc_error.rfind("NONMC", 0) == 0;
-                if (non_mc) {
-                    msg << "[OPEN NON-MC] " << target << ":" << opts.port << " via " << proxy_ip << ":" << opts.proxy_port
-                        << " (" << opts.proxy_type << ") -> " << (mc_error.empty() ? "not a Minecraft server" : mc_error);
-                    emit_log(callbacks.on_open, msg.str());
-                } else if (opts.verbose) {
-                    msg << "[MC-ERROR] " << target << ":" << opts.port << " via " << proxy_ip << ":" << opts.proxy_port
-                        << " (" << opts.proxy_type << ") -> " << mc_error;
-                    emit_log(callbacks.on_verbose, msg.str());
-                }
+            } else if (opts.verbose) {
+                std::ostringstream fail_msg;
+                fail_msg << "[OPEN NON-MC] " << target << ":" << opts.port << " via " << proxy_ip << ":" << opts.proxy_port
+                         << " (" << opts.proxy_type << ") -> " << (mc_error.empty() ? "not a Minecraft server" : mc_error);
+                emit_log(callbacks.on_verbose, fail_msg.str());
             }
         } else if (opts.verbose) {
             std::ostringstream fail_msg;
@@ -987,7 +924,6 @@ int run_console(int argc, char** argv) {
     std::atomic<bool> stop_flag{false};
     std::vector<Result> results;
     bool ok = run_scan(opts, callbacks, stop_flag, results);
-    write_results_to_file(results, opts);
 
     {
         std::lock_guard<std::mutex> lock(cout_mutex);
@@ -1011,13 +947,11 @@ enum ControlId {
     IDC_EDIT_WORKERS,
     IDC_EDIT_START_IP,
     IDC_EDIT_END_IP,
-    IDC_EDIT_PORT,
     IDC_EDIT_PING_TIMEOUT,
     IDC_LOG_ACTIVITY,
     IDC_LOG_SUCCESS,
     IDC_LABEL_START_IP,
     IDC_LABEL_END_IP,
-    IDC_LABEL_PORT,
     IDC_LABEL_WORKERS,
     IDC_LABEL_PING,
     IDC_LABEL_LOG1,
@@ -1049,7 +983,6 @@ struct GuiState {
     HWND workers_edit = nullptr;
     HWND start_ip_edit = nullptr;
     HWND end_ip_edit = nullptr;
-    HWND port_edit = nullptr;
     HWND ping_timeout_edit = nullptr;
     HWND verbose_check = nullptr;
     HWND stats_scanned = nullptr;
@@ -1142,9 +1075,7 @@ void layout_controls(int width, int height) {
     MoveWindow(g_gui.ping_timeout_edit, margin + label_w + edit_w + label_w + 30, y, 70, row_h + 2, TRUE);
 
     y += row_h + row_gap;
-    MoveWindow(GetDlgItem(g_gui.hwnd, IDC_LABEL_PORT), margin, y, label_w, row_h, TRUE);
-    MoveWindow(g_gui.port_edit, margin + label_w + 6, y, 90, row_h + 2, TRUE);
-    MoveWindow(g_gui.verbose_check, margin + label_w + edit_w + 24, y, 220, row_h + 4, TRUE);
+    MoveWindow(g_gui.verbose_check, margin, y, 220, row_h + 4, TRUE);
 
     MoveWindow(g_gui.start_btn, width - margin - 90, margin, 80, row_h + 6, TRUE);
     MoveWindow(g_gui.stop_btn, width - margin - 90, margin + row_h + row_gap, 80, row_h + 6, TRUE);
@@ -1206,20 +1137,15 @@ void create_controls(HWND hwnd) {
                     reinterpret_cast<HMENU>(IDC_LABEL_START_IP), nullptr, nullptr);
     CreateWindowExA(0, "STATIC", "End IP", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
                     reinterpret_cast<HMENU>(IDC_LABEL_END_IP), nullptr, nullptr);
-    CreateWindowExA(0, "STATIC", "Port", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
-                    reinterpret_cast<HMENU>(IDC_LABEL_PORT), nullptr, nullptr);
     CreateWindowExA(0, "STATIC", "Workers", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
                     reinterpret_cast<HMENU>(IDC_LABEL_WORKERS), nullptr, nullptr);
     CreateWindowExA(0, "STATIC", "Ping timeout (ms)", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
                     reinterpret_cast<HMENU>(IDC_LABEL_PING), nullptr, nullptr);
 
-    g_gui.start_ip_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", kDefaultStartIp, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+    g_gui.start_ip_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
                                           0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDC_EDIT_START_IP), nullptr, nullptr);
-    g_gui.end_ip_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", kDefaultEndIp, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+    g_gui.end_ip_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
                                         0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDC_EDIT_END_IP), nullptr, nullptr);
-    g_gui.port_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", std::to_string(kDefaultPort).c_str(),
-                                      WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL, 0, 0, 0, 0, hwnd,
-                                      reinterpret_cast<HMENU>(IDC_EDIT_PORT), nullptr, nullptr);
     g_gui.workers_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
                                          0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDC_EDIT_WORKERS), nullptr, nullptr);
     g_gui.ping_timeout_edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "1000", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
@@ -1259,17 +1185,31 @@ void create_controls(HWND hwnd) {
     g_gui.log_activity = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "", log_style, 0, 0, 0, 0, hwnd,
                                          reinterpret_cast<HMENU>(IDC_LOG_ACTIVITY), nullptr, nullptr);
     g_gui.log_success = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "", log_style, 0, 0, 0, 0, hwnd,
-                                         reinterpret_cast<HMENU>(IDC_LOG_SUCCESS), nullptr, nullptr);
+                                        reinterpret_cast<HMENU>(IDC_LOG_SUCCESS), nullptr, nullptr);
 
-    for (HWND h : {g_gui.start_ip_edit, g_gui.end_ip_edit, g_gui.port_edit, g_gui.workers_edit, g_gui.ping_timeout_edit,
-                   g_gui.verbose_check, g_gui.start_btn, g_gui.stop_btn, g_gui.log_activity, g_gui.log_success,
-                   GetDlgItem(hwnd, IDC_LABEL_START_IP), GetDlgItem(hwnd, IDC_LABEL_END_IP), GetDlgItem(hwnd, IDC_LABEL_PORT),
-                   GetDlgItem(hwnd, IDC_LABEL_WORKERS), GetDlgItem(hwnd, IDC_LABEL_PING), GetDlgItem(hwnd, IDC_LABEL_SCANNED),
-                   GetDlgItem(hwnd, IDC_LABEL_SCAN_RATE), GetDlgItem(hwnd, IDC_LABEL_REPLIES), GetDlgItem(hwnd, IDC_LABEL_REPLY_RATE),
-                   GetDlgItem(hwnd, IDC_LABEL_OPENS), g_gui.stats_scanned, g_gui.stats_scan_rate, g_gui.stats_replies,
-                   g_gui.stats_reply_rate, g_gui.stats_opens}) {
-        set_control_font(h, g_gui.font);
-    }
+    set_control_font(g_gui.start_ip_edit, g_gui.font);
+    set_control_font(g_gui.end_ip_edit, g_gui.font);
+    set_control_font(g_gui.workers_edit, g_gui.font);
+    set_control_font(g_gui.ping_timeout_edit, g_gui.font);
+    set_control_font(g_gui.verbose_check, g_gui.font);
+    set_control_font(g_gui.start_btn, g_gui.font);
+    set_control_font(g_gui.stop_btn, g_gui.font);
+    set_control_font(g_gui.log_activity, g_gui.font);
+    set_control_font(g_gui.log_success, g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_START_IP), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_END_IP), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_WORKERS), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_PING), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_SCANNED), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_SCAN_RATE), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_REPLIES), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_REPLY_RATE), g_gui.font);
+    set_control_font(GetDlgItem(hwnd, IDC_LABEL_OPENS), g_gui.font);
+    set_control_font(g_gui.stats_scanned, g_gui.font);
+    set_control_font(g_gui.stats_scan_rate, g_gui.font);
+    set_control_font(g_gui.stats_replies, g_gui.font);
+    set_control_font(g_gui.stats_reply_rate, g_gui.font);
+    set_control_font(g_gui.stats_opens, g_gui.font);
 
     RECT rc{};
     GetClientRect(hwnd, &rc);
@@ -1279,7 +1219,6 @@ void create_controls(HWND hwnd) {
 void set_inputs_enabled(bool enabled) {
     EnableWindow(g_gui.start_ip_edit, enabled);
     EnableWindow(g_gui.end_ip_edit, enabled);
-    EnableWindow(g_gui.port_edit, enabled);
     EnableWindow(g_gui.workers_edit, enabled);
     EnableWindow(g_gui.ping_timeout_edit, enabled);
     EnableWindow(g_gui.verbose_check, enabled);
@@ -1298,19 +1237,21 @@ void handle_start() {
 
     std::string start_ip = trim_copy(read_text(g_gui.start_ip_edit));
     std::string end_ip = trim_copy(read_text(g_gui.end_ip_edit));
-    if (start_ip.empty()) start_ip = kDefaultStartIp;
-    if (end_ip.empty()) end_ip = kDefaultEndIp;
+    if (start_ip.empty() || end_ip.empty()) {
+        MessageBoxA(g_gui.hwnd, "Please provide both start IP and end IP.", "Missing input", MB_OK | MB_ICONWARNING);
+        return;
+    }
 
-    auto parse_int = [](const std::string& text, int fallback, int min_val) {
-        try {
-            return std::max(min_val, std::stoi(trim_copy(text)));
-        } catch (...) {
-            return fallback;
-        }
-    };
-    int workers = parse_int(read_text(g_gui.workers_edit), 32, 1);
-    int ping_ms = parse_int(read_text(g_gui.ping_timeout_edit), 1000, 100);
-    int port_val = parse_int(read_text(g_gui.port_edit), kDefaultPort, 1);
+    int workers = 32;
+    try {
+        workers = std::max(1, std::stoi(trim_copy(read_text(g_gui.workers_edit))));
+    } catch (...) {
+    }
+    int ping_ms = 1000;
+    try {
+        ping_ms = std::max(100, std::stoi(trim_copy(read_text(g_gui.ping_timeout_edit))));
+    } catch (...) {
+    }
     g_gui.verbose = (SendMessage(g_gui.verbose_check, BM_GETCHECK, 0, 0) == BST_CHECKED);
 
     clear_log(g_gui.log_activity);
@@ -1320,10 +1261,11 @@ void handle_start() {
     Options opts;
     opts.start_ip = start_ip;
     opts.end_ip = end_ip;
-    opts.port = port_val;
     opts.workers = workers;
     opts.ping_timeout_sec = ping_ms / 1000.0;
-    opts.verbose = g_gui.verbose;
+    opts.duration_sec = -1.0;
+    opts.shuffle_targets = true;  // enforce randomized targets
+    opts.verbose = false;
 
     g_gui.stop_flag.store(false);
     g_gui.running = true;
@@ -1340,11 +1282,7 @@ void handle_start() {
         }
     };
     callbacks.on_ping_success = [&](const std::string& msg) { post_log(g_gui.hwnd, WM_LOG_RECV, msg); };
-    callbacks.on_open = [&](const std::string& msg) {
-        if (msg.rfind("[OPEN NON-MC]", 0) == 0 || msg.rfind("LOG:", 0) == 0) {
-            post_log(g_gui.hwnd, WM_LOG_SUCCESS, msg);
-        }
-    };
+    callbacks.on_open = {};  // GUI logs MC hits via on_result to avoid duplicates
     callbacks.on_info = [&](const std::string& msg) { post_log(g_gui.hwnd, WM_LOG_PING, msg); };
     callbacks.on_verbose = [&](const std::string& msg) { post_log(g_gui.hwnd, WM_LOG_PING, msg); };
     const int port = opts.port;
@@ -1364,7 +1302,6 @@ void handle_start() {
     g_gui.scan_thread = std::thread([opts, callbacks]() mutable {
         std::vector<Result> results;
         bool ok = run_scan(opts, callbacks, g_gui.stop_flag, results);
-        write_results_to_file(results, opts);
         if (IsWindow(g_gui.hwnd)) {
             LPARAM stopped = g_gui.stop_flag.load() ? 1 : 0;
             PostMessage(g_gui.hwnd, WM_SCAN_DONE, ok ? 1 : 0, stopped);
